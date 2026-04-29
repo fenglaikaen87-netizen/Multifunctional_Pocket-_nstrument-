@@ -1,6 +1,6 @@
 module scope_measure #(
     parameter DATA_WIDTH = 8,
-    parameter WINDOW_LEN = 100000
+    parameter WINDOW_LEN = 1024
 )(
     input  wire                    clk,
     input  wire                    rst_n,
@@ -15,20 +15,17 @@ module scope_measure #(
     output reg                     measure_valid
 );
 
-    //====================================================
-    // 1. 统计窗口计数器
-    //====================================================
     reg [31:0] sample_cnt;
 
-    //====================================================
-    // 2. 当前窗口内的临时最大值 / 最小值
-    //====================================================
     reg [DATA_WIDTH-1:0] max_temp;
     reg [DATA_WIDTH-1:0] min_temp;
 
-    //====================================================
-    // 3. 主逻辑
-    //====================================================
+    wire [DATA_WIDTH-1:0] max_next;
+    wire [DATA_WIDTH-1:0] min_next;
+
+    assign max_next = (adc_data > max_temp) ? adc_data : max_temp;
+    assign min_next = (adc_data < min_temp) ? adc_data : min_temp;
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             sample_cnt    <= 32'd0;
@@ -41,36 +38,29 @@ module scope_measure #(
             mid_val       <= {DATA_WIDTH{1'b0}};
             measure_valid <= 1'b0;
         end else begin
-            // 默认拉低，只在一整个窗口统计结束时拉高一拍
             measure_valid <= 1'b0;
 
             if (sample_valid) begin
 
-                // 更新窗口内最大值
-                if (adc_data > max_temp)
-                    max_temp <= adc_data;
-
-                // 更新窗口内最小值
-                if (adc_data < min_temp)
-                    min_temp <= adc_data;
-
-                // 窗口计数
                 if (sample_cnt >= WINDOW_LEN - 1) begin
                     sample_cnt <= 32'd0;
 
-                    // 锁存本窗口测量结果
-                    max_val <= max_temp;
-                    min_val <= min_temp;
-                    vpp     <= max_temp - min_temp;
-                    mid_val <= (max_temp + min_temp) >> 1;
+                    // 输出包含当前采样点在内的窗口结果
+                    max_val <= max_next;
+                    min_val <= min_next;
+                    vpp     <= max_next - min_next;
+                    mid_val <= (max_next + min_next) >> 1;
 
                     measure_valid <= 1'b1;
 
-                    // 开始下一轮统计
+                    // 下一轮从初始值重新统计
                     max_temp <= {DATA_WIDTH{1'b0}};
                     min_temp <= {DATA_WIDTH{1'b1}};
                 end else begin
                     sample_cnt <= sample_cnt + 1'b1;
+
+                    max_temp <= max_next;
+                    min_temp <= min_next;
                 end
             end
         end

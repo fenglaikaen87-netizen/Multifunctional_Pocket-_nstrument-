@@ -1,5 +1,5 @@
 module freq_calc #(
-    parameter CLK_FREQ = 100_000_000
+    parameter SAMPLE_FREQ = 1_000_000
 )(
     input  wire        clk,
     input  wire        rst_n,
@@ -16,7 +16,7 @@ module freq_calc #(
         end else begin
             if (period_valid) begin
                 if (period_cnt != 32'd0)
-                    freq_value <= CLK_FREQ / period_cnt;
+                    freq_value <= SAMPLE_FREQ / period_cnt;
                 else
                     freq_value <= 32'd0;
             end
