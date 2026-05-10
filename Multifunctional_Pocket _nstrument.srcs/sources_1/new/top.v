@@ -6,7 +6,17 @@ module top(
     input  wire [2:0] freq_sel,
 
     output reg  [7:0] wave_out,
-    output wire       pwm_out
+    output wire       pwm_out,
+
+    //====================================================
+    // DAC0832 输出接口
+    //====================================================
+    output wire [7:0] dac_data,
+    output wire       dac_cs_n,
+    output wire       dac_wr1_n,
+    output wire       dac_wr2_n,
+    output wire       dac_xfer_n,
+    output wire       dac_byte2
 );
 
     //====================================================
@@ -102,6 +112,23 @@ module top(
         .rst_n(rst_n),
         .duty_in(wave_out),
         .pwm_out(pwm_out)
+    );
+
+    //====================================================
+    // 8. DAC0832输出
+    // wave_out[7:0] → DAC0832 数据线
+    //====================================================
+    dac0832_driver u_dac0832_driver (
+        .clk        (clk),
+        .rst_n      (rst_n),
+        .data_in    (wave_out),
+
+        .dac_data   (dac_data),
+        .dac_cs_n   (dac_cs_n),
+        .dac_wr1_n  (dac_wr1_n),
+        .dac_wr2_n  (dac_wr2_n),
+        .dac_xfer_n (dac_xfer_n),
+        .dac_byte2  (dac_byte2)
     );
 
 endmodule
