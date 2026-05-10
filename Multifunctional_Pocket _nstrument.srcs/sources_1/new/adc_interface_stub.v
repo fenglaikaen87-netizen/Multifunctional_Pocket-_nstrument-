@@ -1,74 +1,77 @@
-module freq_meter_adc #(
-    parameter DATA_WIDTH = 8,
-    parameter THRESHOLD  = 128
+module adc_interface_stub #(
+    parameter DATA_WIDTH = 8
 )(
     input  wire                  clk,
     input  wire                  rst_n,
 
-    input  wire [DATA_WIDTH-1:0] adc_data,
-    input  wire                  adc_valid,
-
-    output reg  [31:0]           period_cnt,
-    output reg                   period_valid
+    output reg  [DATA_WIDTH-1:0] adc_ch1_data,
+    output reg  [DATA_WIDTH-1:0] adc_ch2_data,
+    output reg                   adc_valid
 );
 
     //====================================================
-    // 1. 当前采样点是否超过阈值
+    // 1. 采样节拍计数器
+    // 每 100 个 100MHz clk 输出一次有效采样
+    // 等效采样率：100MHz / 100 = 1MHz
     //====================================================
-    wire sig_now;
-    assign sig_now = (adc_data >= THRESHOLD);
+    reg [7:0] sample_cnt;
 
     //====================================================
-    // 2. 上一个有效采样点的过阈值状态
+    // 2. 假 ADC 三角波数据
     //====================================================
-    reg sig_last;
+    reg [DATA_WIDTH-1:0] wave_cnt;
 
-    //====================================================
-    // 3. 周期计数器
-    //====================================================
-    reg [31:0] cnt_run;
-    reg        counting;
+    // dir = 1：上升
+    // dir = 0：下降
+    reg dir;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            sig_last     <= 1'b0;
-            cnt_run      <= 32'd0;
-            period_cnt   <= 32'd0;
-            period_valid <= 1'b0;
-            counting     <= 1'b0;
+            sample_cnt   <= 8'd0;
+            wave_cnt     <= {DATA_WIDTH{1'b0}};
+            dir          <= 1'b1;
+
+            adc_ch1_data <= {DATA_WIDTH{1'b0}};
+            adc_ch2_data <= {DATA_WIDTH{1'b1}};
+            adc_valid    <= 1'b0;
         end else begin
-            // 默认 period_valid 只打一拍
-            period_valid <= 1'b0;
+            // 默认 adc_valid 拉低
+            adc_valid <= 1'b0;
 
-            // 只在 adc_valid 有效时处理一次采样
-            if (adc_valid) begin
+            // 每 100 个 clk 产生一次 ADC 采样点
+            if (sample_cnt >= 8'd99) begin
+                sample_cnt <= 8'd0;
+                adc_valid  <= 1'b1;
 
-                // 如果已经开始计数，则每来一个有效采样点加 1
-                if (counting) begin
-                    cnt_run <= cnt_run + 1'b1;
+                //================================================
+                // 先输出当前 wave_cnt
+                //================================================
+                adc_ch1_data <= wave_cnt;
+                adc_ch2_data <= {DATA_WIDTH{1'b1}} - wave_cnt;
+
+                //================================================
+                // 再更新 wave_cnt，形成 00 → ff → 00 三角波
+                //================================================
+                if (dir) begin
+                    // 上升阶段
+                    if (wave_cnt >= {DATA_WIDTH{1'b1}}) begin
+                        dir      <= 1'b0;
+                        wave_cnt <= wave_cnt - 1'b1;
+                    end else begin
+                        wave_cnt <= wave_cnt + 1'b1;
+                    end
+                end else begin
+                    // 下降阶段
+                    if (wave_cnt <= {DATA_WIDTH{1'b0}}) begin
+                        dir      <= 1'b1;
+                        wave_cnt <= wave_cnt + 1'b1;
+                    end else begin
+                        wave_cnt <= wave_cnt - 1'b1;
+                    end
                 end
 
-                // 检测"有效采样点之间"的上升沿
-                // sig_last 是上一个 adc_valid 时的状态
-                // sig_now  是当前 adc_valid 时的状态
-                if (sig_now && !sig_last) begin
-
-                    // 第一次上升沿：只启动计数
-                    if (!counting) begin
-                        counting <= 1'b1;
-                        cnt_run  <= 32'd0;
-                    end
-
-                    // 第二次及以后上升沿：输出周期
-                    else begin
-                        period_cnt   <= cnt_run;
-                        period_valid <= 1'b1;
-                        cnt_run      <= 32'd0;
-                    end
-                end
-
-                // 更新"上一有效采样点状态"
-                sig_last <= sig_now;
+            end else begin
+                sample_cnt <= sample_cnt + 1'b1;
             end
         end
     end
