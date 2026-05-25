@@ -22,12 +22,14 @@ module top(
     //====================================================
     // 1. 基础频率控制：给方波 / 三角波使用
     //====================================================
-    wire [31:0] freq_ctrl;
+wire [31:0] square_freq_ctrl;
+wire [31:0] triangle_freq_ctrl;
 
-    freq_ctrl_basic u_freq_ctrl_basic (
-        .freq_sel(freq_sel),
-        .freq_ctrl(freq_ctrl)
-    );
+freq_ctrl_basic u_freq_ctrl_basic (
+    .freq_sel(freq_sel),
+    .square_freq_ctrl(square_freq_ctrl),
+    .triangle_freq_ctrl(triangle_freq_ctrl)
+);
 
     //====================================================
     // 2. DDS频率控制：给DDS正弦波使用
@@ -44,24 +46,23 @@ module top(
     //====================================================
     wire square_out;
 
-    square_gen u_square_gen (
-        .clk(clk),
-        .rst_n(rst_n),
-        .freq_ctrl(freq_ctrl),
-        .square_out(square_out)
-    );
-
+square_gen u_square_gen (
+    .clk(clk),
+    .rst_n(rst_n),
+    .freq_ctrl(square_freq_ctrl),
+    .square_out(square_out)
+);
     //====================================================
     // 4. 三角波发生器
     //====================================================
     wire [7:0] triangle_out;
 
-    triangle_gen u_triangle_gen (
-        .clk(clk),
-        .rst_n(rst_n),
-        .freq_ctrl(freq_ctrl),
-        .triangle_out(triangle_out)
-    );
+triangle_gen u_triangle_gen (
+    .clk(clk),
+    .rst_n(rst_n),
+    .freq_ctrl(triangle_freq_ctrl),
+    .triangle_out(triangle_out)
+);
 
     //====================================================
     // 5. DDS正弦波发生器
